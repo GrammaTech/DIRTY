@@ -1,0 +1,3 @@
+[submodule "docker/dev-container"]
+	path = docker/dev-container
+	url = git@git.grammatech.com:reverse-engineering/discover/misc/dev-container.git
