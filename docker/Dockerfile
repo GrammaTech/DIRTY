@@ -22,6 +22,10 @@ RUN apt-get install -y \
         git \
         mercurial \
         subversion
+RUN apt-get install -y \
+        gcc \
+        g++ \
+        make
 RUN apt-get clean
 
 # conda retrieval
