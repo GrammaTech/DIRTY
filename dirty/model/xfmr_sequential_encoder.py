@@ -11,6 +11,7 @@ from utils.vocab import PAD_ID, Vocab
 
 from .encoder import Encoder
 
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -47,17 +48,7 @@ class TransformerModel(nn.Module):
         src = src * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
         output = self.transformer_encoder(src, src_key_padding_mask=src_padding)
-        # set state and cell to the average of output
-        masked_sum = (
-            output.transpose(0, 1)
-            * ((~src_padding).unsqueeze(-1).expand(-1, -1, self.nhid))
-        ).sum(dim=1)
-        lengths = (~src_padding).sum(dim=1, keepdim=True)
-        avg = masked_sum / lengths
-        state = torch.stack(
-            [avg[:, : self.nhid // 2], avg[:, self.nhid // 2 :]]
-        ).unsqueeze(0)
-        return output, (state, state)
+        return output
 
 
 class XfmrSequentialEncoder(Encoder):
@@ -102,9 +93,7 @@ class XfmrSequentialEncoder(Encoder):
 
         return cls(params)
 
-    def forward(
-        self, tensor_dict: Dict[str, Union[torch.Tensor, int]]
-    ) -> Dict[str, torch.Tensor]:
+    def forward(self, tensor_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """Returns the contextualized encoding for code tokens and variables
 
         :param tensor_dict: [description]
@@ -117,7 +106,6 @@ class XfmrSequentialEncoder(Encoder):
         (
             code_token_encoding,
             code_token_mask,
-            (last_states, last_cells),
         ) = self.encode_sequence(tensor_dict["src_code_tokens"])
 
         # (batch_size, max_variable_mention_num)
@@ -128,7 +116,7 @@ class XfmrSequentialEncoder(Encoder):
         variable_encoding_mask = tensor_dict["variable_encoding_mask"]
         variable_mention_num = tensor_dict["variable_mention_num"]
 
-        # # (batch_size, max_variable_mention_num, encoding_size)
+        # (batch_size, max_variable_mention_num, encoding_size)
         max_time_step = variable_mention_to_variable_id.size(1)
         variable_num = variable_mention_num.size(1)
         encoding_size = code_token_encoding.size(-1)
@@ -137,7 +125,10 @@ class XfmrSequentialEncoder(Encoder):
             code_token_encoding * variable_mention_mask.unsqueeze(-1)
         )
         variable_encoding = torch.zeros(
-            tensor_dict["src_code_tokens"].size(0), variable_num, encoding_size, device=self.device
+            tensor_dict["src_code_tokens"].size(0),
+            variable_num,
+            encoding_size,
+            device=self.device,
         )
         variable_encoding.scatter_add_(
             1,
@@ -152,8 +143,6 @@ class XfmrSequentialEncoder(Encoder):
             variable_encoding=variable_encoding,
             code_token_encoding=code_token_encoding,
             code_token_mask=code_token_mask,
-            last_states=last_states,
-            last_cells=last_cells,
         )
 
         # context_encoding.update(tensor_dict)
@@ -168,16 +157,14 @@ class XfmrSequentialEncoder(Encoder):
         # (batch_size, max_code_length)
         code_token_mask = torch.ne(code_sequence, PAD_ID)
 
-        sorted_encodings, (last_states, last_cells) = self.encoder(
-            code_token_embedding.transpose(0, 1), ~code_token_mask
-        )
-        sorted_encodings = sorted_encodings.transpose(0, 1)
+        hidden = self.encoder(code_token_embedding.transpose(0, 1), ~code_token_mask)
+        hidden = hidden.transpose(0, 1)
 
         # apply dropout to the last layer
         # (batch_size, seq_len, hidden_size * 2)
-        sorted_encodings = self.dropout(sorted_encodings)
+        hidden = self.dropout(hidden)
 
-        return sorted_encodings, code_token_mask, (last_states, last_cells)
+        return hidden, code_token_mask
 
     def get_attention_memory(self, context_encoding, att_target="terminal_nodes"):
         assert att_target == "terminal_nodes"
