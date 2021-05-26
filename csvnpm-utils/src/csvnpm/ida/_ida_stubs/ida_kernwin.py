@@ -1,0 +1,6 @@
+class action_handler_t:
+    def activate(self, ctx) -> int:
+        ...
+
+    def update(self, ctx) -> None:
+        ...
