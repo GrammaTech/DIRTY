@@ -2,7 +2,7 @@ from typing import Dict
 
 import torch
 import torch.nn as nn
-from csvnpm.binary.dire_types import TypeLibCodec
+from csvnpm.binary.types.typelib import TypeLibCodec
 from torch.nn import LayerNorm, TransformerDecoder, TransformerDecoderLayer
 
 from dirty.model.xfmr_decoder import XfmrDecoder
@@ -114,7 +114,13 @@ class XfmrSubtypeDecoder(XfmrDecoder):
         target_dict: Dict[str, torch.Tensor],
         variable_type_logits: torch.Tensor,
     ):
-        """Greedy decoding"""
+        """Greedy decoding
+
+        :param context_encoding: key indexed encoded contexts
+        :param target_dict: [description]
+        :param variable_type_logits: [description]
+        :return: list of predictions
+        """
 
         batch_size, _, _ = context_encoding["variable_encoding"].shape
         max_time_step = 64
@@ -189,10 +195,13 @@ class XfmrSubtypeDecoder(XfmrDecoder):
 
     @staticmethod
     def generate_square_subsequent_mask(sz: int, device: torch.device) -> torch.Tensor:
-        r"""
-        Generate a square mask for the sequence. The masked positions are filled with
+        """Generate a square mask for the sequence. The masked positions are filled with
           float('-inf').
-        Unmasked positions are filled with float(0.0).
+        Unmasked positions are filled with float(0.0).]
+
+        :param sz: size of square mask
+        :param device: torch device used for training
+        :return: mask
         """
         mask = (torch.triu(torch.ones(sz, sz, device=device)) == 1).transpose(0, 1)
         mask = (

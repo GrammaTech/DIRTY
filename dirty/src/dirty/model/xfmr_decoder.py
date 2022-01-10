@@ -2,18 +2,21 @@ from typing import Dict
 
 import torch
 import torch.nn as nn
-from csvnpm.binary.dire_types import TypeLibCodec
+from csvnpm.binary.types.typelib import TypeLibCodec
 from torch.nn import LayerNorm, TransformerDecoder, TransformerDecoderLayer
 
+from dirty.model.beam import Beam
 from dirty.utils import util
 from dirty.utils.vocab import Vocab
 
-from .beam import Beam
-
 
 def tile(x, count, dim=0):
-    """
-    Tiles x on dimension dim count times.
+    """Tiles x on dimension dim count times.
+
+    :param x: information to be tiled
+    :param count: the number of tiles
+    :param dim: the number of dimmensions, defaults to 0
+    :return: the tiled values of x
     """
     perm = list(range(len(x.size())))
     if dim != 0:
@@ -136,7 +139,14 @@ class XfmrDecoder(nn.Module):
         input_dict: Dict[str, torch.Tensor],
         variable_type_logits: torch.Tensor,
     ):
-        """Greedy decoding"""
+        """Greedy decoding
+
+        :param context_encoding: [description]
+        :param input_dict: [description]
+        :param variable_type_logits: not used, currently acting as place holder
+        :raises NotImplementedError: [description]
+        :return: [description]
+        """
 
         batch_size, max_time_step, _ = context_encoding["variable_encoding"].shape
         tgt = torch.zeros(batch_size, 1, self.config["target_embedding_size"]).to(
@@ -211,7 +221,15 @@ class XfmrDecoder(nn.Module):
         beam_size: int = 5,
         length_norm: bool = True,
     ):
-        """Beam search decoding"""
+        """Beam search decoding
+
+        :param context_encoding: an encoded context
+        :param input_dict: input to encoder
+        :param variable_type_logits: currently not used
+        :param beam_size: size of return beams, defaults to 5
+        :param length_norm: length of return bream, defaults to True
+        :return: tensor of all previous states
+        """
 
         batch_size, max_time_step, _ = context_encoding["variable_encoding"].shape
         tgt = torch.zeros(batch_size, 1, self.config["target_embedding_size"]).to(
@@ -319,10 +337,13 @@ class XfmrDecoder(nn.Module):
 
     @staticmethod
     def generate_square_subsequent_mask(sz: int, device: torch.device) -> torch.Tensor:
-        r"""
-        Generate a square mask for the sequence. The masked positions are filled with
+        """Generate a square mask for the sequence. The masked positions are filled with
           float('-inf').
         Unmasked positions are filled with float(0.0).
+
+        :param sz: [description]
+        :param device: [description]
+        :return: [description]
         """
         mask = (torch.triu(torch.ones(sz, sz, device=device)) == 1).transpose(0, 1)
         mask = (
@@ -464,7 +485,13 @@ class XfmrInterleaveDecoder(XfmrDecoder):
         input_dict: Dict[str, torch.Tensor],
         variable_type_logits: torch.Tensor,
     ):
-        """Greedy decoding"""
+        """Greedy decoding
+
+        :param context_encoding: encoded context
+        :param input_dict: kw indexed arguments for ML models
+        :param variable_type_logits: not used, likely placeholder
+        :return: type and name predictions
+        """
 
         variable_encoding = XfmrInterleaveDecoder.interleave_3d(
             context_encoding["variable_encoding"],
@@ -569,7 +596,15 @@ class XfmrInterleaveDecoder(XfmrDecoder):
         beam_size: int = 5,
         length_norm: bool = True,
     ):
-        """Beam search decoding"""
+        """Beam search decoding
+
+        :param context_encoding: encoded context
+        :param input_dict: kw arguments for ml models
+        :param variable_type_logits: not used, likely placeholder
+        :param beam_size: size for beam search, defaults to 5
+        :param length_norm: normalize output?, defaults to True
+        :return: encoded history of types and names
+        """
 
         variable_encoding = XfmrInterleaveDecoder.interleave_3d(
             context_encoding["variable_encoding"],

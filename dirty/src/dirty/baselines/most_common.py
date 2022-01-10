@@ -2,7 +2,7 @@ import json
 from typing import Any, Dict
 
 import _jsonnet
-from csvnpm.binary.dire_types import TypeLibCodec
+from csvnpm.binary.types.typelib import TypeLibCodec
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 

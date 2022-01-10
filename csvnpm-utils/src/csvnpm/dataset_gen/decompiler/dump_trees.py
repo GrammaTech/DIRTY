@@ -4,12 +4,12 @@ import pickle
 from typing import Dict, List
 
 import jsonlines  # type: ignore
-from csvnpm.binary.dire_types import TypeLib
 from csvnpm.binary.function import CollectedFunction, Function
 from csvnpm.binary.ida_ast import AST
 from csvnpm.ida import ida_lines
 from csvnpm.ida import idaapi as ida
 from csvnpm.ida import idautils
+from csvnpm.ida.ida_typelib import TypeLib
 
 from .collect import Collector
 
@@ -41,6 +41,9 @@ class CollectDecompiler(Collector):
     def activate(self, ctx) -> int:
         """Collects types, user-defined variables, their locations in addition to the
         AST and raw code.
+
+        :param ctx: context? seems unused
+        :return: 1 if success, expect errors otherwise
         """
         print("Collecting vars and types.")
         for ea in (ea for ea in idautils.Functions() if ea in self.debug_functions):
@@ -58,7 +61,7 @@ class CollectDecompiler(Collector):
             name: str = ida.get_func_name(ea)
 
             self.type_lib.add_ida_type(cfunc.type.get_rettype())
-            return_type = TypeLib.parse_ida_type(cfunc.type.get_rettype())
+            return_type = TypeLib.parse_type(cfunc.type.get_rettype())
 
             arguments = self.collect_variables(
                 f.frsize, cfunc.get_stkoff_delta(), cfunc.arguments

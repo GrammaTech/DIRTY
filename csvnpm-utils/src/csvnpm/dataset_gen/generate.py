@@ -16,11 +16,6 @@ from typing import Iterable, Tuple
 
 from tqdm import tqdm  # type: ignore
 
-# from runner import Runner
-
-# COLLECT = os.path.join(dire_dir, "decompiler", "debug.py")
-# DUMP_TREES = os.path.join(dire_dir, "decompiler", "dump_trees.py")
-
 
 class Runner:
     dire_dir = os.path.dirname(os.path.abspath(__file__))
@@ -53,7 +48,9 @@ class Runner:
 
     @property
     def binaries(self) -> Iterable[Tuple[str, str]]:
-        """Readable 64-bit ELFs in the binaries_dir and their paths"""
+        """
+        :return: Readable 64-bit ELFs in the binaries_dir and their paths
+        """
 
         def is_elf64(root: str, path: str) -> bool:
             file_path = os.path.join(root, path)
@@ -74,9 +71,11 @@ class Runner:
 
     @property
     def num_files(self) -> int:
-        """The number of files in the binaries directory. Note that this is not
-        the total number of binaries because it does not check file headers. The
-        number of binary files could be lower."""
+        """
+        :return: The number of files in the binaries directory. Note that this is not
+            the total number of binaries because it does not check file headers. The
+            number of binary files could be lower.
+        """
         if self._num_files is None:
             self._num_files = 0
             for _, _, files in os.walk(self.binaries_dir):
@@ -85,7 +84,12 @@ class Runner:
 
     @staticmethod
     def make_dir(dir_path):
-        """Make a directory, with clean error messages."""
+        """Make a directory, with clean error messages.
+
+        :param dir_path: directory path to make
+        :raises NotADirectoryError: directory path is not a directory
+        :raises FileExistsError: directory path does not exist
+        """
 
         try:
             os.makedirs(dir_path)
@@ -93,16 +97,16 @@ class Runner:
             if not os.path.isdir(dir_path):
                 raise NotADirectoryError(f"'{dir_path}' is not a directory")
             if e.errno != errno.EEXIST:
-                raise
+                raise FileExistsError
 
     def run_decompiler(self, env, file_name, script, timeout=None):
         """Run a decompiler script.
 
         Keyword arguments:
-        file_name -- the binary to be decompiled
-        env -- an os.environ mapping, useful for passing arguments
-        script -- the script file to run
-        timeout -- timeout in seconds (default no timeout)
+        :param env: an os.environ mapping, useful for passing arguments
+        :param file_name: the binary to be decompiled
+        :param script: the script file to run
+        :param timeout: timeout in seconds (default no timeout)
         """
         idacall = [self.ida, "-B", f"-S{script}", file_name]
         output = ""

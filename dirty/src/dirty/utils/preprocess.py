@@ -22,8 +22,9 @@ from json import dumps
 
 import numpy as np
 import ujson as json
-from csvnpm.binary.dire_types import TypeLib, TypeLibCodec
 from csvnpm.binary.function import CollectedFunction
+from csvnpm.binary.types.typelib import TypeLibCodec
+from csvnpm.ida.ida_typelib import TypeLib
 from docopt import docopt
 from tqdm import tqdm
 

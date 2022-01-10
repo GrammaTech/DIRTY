@@ -4,7 +4,7 @@ from typing import Dict, Tuple, Union
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-from csvnpm.binary.dire_types import TypeLibCodec
+from csvnpm.binary.types.typelib import TypeLibCodec
 from pytorch_lightning.metrics.functional import accuracy
 
 from dirty.model.decoder import Decoder

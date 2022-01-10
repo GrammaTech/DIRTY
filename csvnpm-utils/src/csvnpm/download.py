@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 import time
+from functools import partial
 
 import requests
 import tqdm
@@ -11,6 +12,13 @@ def download(url, path, fname, redownload=False):
     """
     Downloads file using `requests`. If ``redownload`` is set to false, then
     will not download tar file again if it is present (default ``True``).
+
+    :param url: string of base url to download from
+    :param path: string of base directory to save
+    :param fname: destination filename
+    :param redownload: checks if file already exists, defaults to False
+    :raises RuntimeWarning: Interrupted Network Connection
+    :raises RuntimeWarning: wrong download payload size
     """
     outfile = os.path.join(path, fname)
     download = not os.path.isfile(outfile) or redownload
@@ -104,7 +112,11 @@ def _get_confirm_token(response):
 
 
 def download_from_google_drive(gd_id, destination):
-    """Uses the requests package to download a file from Google Drive."""
+    """Uses the requests package to download a file from Google Drive.
+
+    :param gd_id: google drive id
+    :param destination: file destination to save to
+    """
     URL = "https://docs.google.com/uc?export=download"
 
     with requests.Session() as session:
@@ -126,15 +138,17 @@ def download_from_google_drive(gd_id, destination):
         response.close()
 
 
-def move(path1, path2):
-    """Renames the given file."""
-    shutil.move(path1, path2)
+move = shutil.move
 
 
 def untar(path, fname, deleteTar=True):
     """
     Unpacks the given archive file to the same directory, then (by default)
     deletes the archive file.
+
+    :param path: string path of base directory
+    :param fname: string of filename to untar from file
+    :param deleteTar: delete tar after extraction, defaults to True
     """
     print("unpacking " + fname)
     fullpath = os.path.join(path, fname)
@@ -143,11 +157,7 @@ def untar(path, fname, deleteTar=True):
         os.remove(fullpath)
 
 
-def make_dir(path):
-    """Makes the directory and any nonexistent parent directories."""
-    # the current working directory is a fine path
-    if path != "":
-        os.makedirs(path, exist_ok=True)
+make_dir = partial(os.makedirs, exist_ok=True)
 
 
 def main():

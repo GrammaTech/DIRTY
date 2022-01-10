@@ -8,8 +8,10 @@ ctype_t, which is just an integer. This is stored in "meta"
 import typing as t
 from json import dumps
 
-from csvnpm.binary.dire_types import TypeInfo, TypeLib, TypeLibCodec
+from csvnpm.binary.types.typeinfo import TypeInfo
+from csvnpm.binary.types.typelib import TypeLibCodec
 from csvnpm.ida import idaapi as ida
+from csvnpm.ida.ida_typelib import TypeLib
 
 # =================== AST Nodes ===================#
 
@@ -24,7 +26,10 @@ class Statement:
         self.node_id = node_id
 
     def to_json(self):
-        """Encodes the node as JSON"""
+        """
+        Encodes the node as JSON
+        :return: json representation of structure
+        """
         return {"id": self.node_id, "M": self.meta}
 
     @classmethod
@@ -569,7 +574,7 @@ class Call(Expression):
                 idx = item.v.idx
                 assert ast.function is not None
                 name = ast.function.lvars[idx].name
-            formal_type = TypeLib.parse_ida_type(item.formal_type)
+            formal_type = TypeLib.parse_type(item.formal_type)
             return cls(
                 node_id=node_id,
                 is_vararg=is_vararg,
@@ -827,7 +832,7 @@ class Var(Expression):
 
     def __repr__(self):
         # FIXME
-        # typ = TypeLib.parse_ida_type(self.type)
+        # typ = TypeLib.parse_type(self.type)
         return f"{self.name}"
 
 
@@ -873,7 +878,7 @@ class Type(Expression):
     @classmethod
     def from_item(cls, item: ida.cexpr_t, ast: "AST") -> "Type":  # type: ignore
         node_id = ast.next_id()
-        return cls(node_id=node_id, typ=TypeLib.parse_ida_type(item.type))
+        return cls(node_id=node_id, typ=TypeLib.parse_type(item.type))
 
     def __repr__(self):
         return f"Type ({self.typ})"
@@ -1290,19 +1295,35 @@ statements = {c.meta: c for c in all_classes if c.meta > ida.cot_last}
 
 
 def parse_hexrays_expression(expr: ida.cexpr_t, ast: "AST") -> Expression:
-    """Parses a HexRays expression and returns an Expression object"""
+    """
+    Parses a HexRays expression and returns an Expression object
+
+    :param expr: expression object as defined by ida
+    :param ast: ast for expression
+    :return: Expression object for ast
+    """
     return expressions[expr.op].from_item(expr, ast)  # type: ignore
 
 
 def parse_hexrays_statement(stmt: ida.cinsn_t, ast: "AST") -> Statement:
-    """Parses a HexRays statement and returns a Statement object"""
+    """
+    Parses a HexRays expression and returns an Statement object
+
+    :param stmt: statement object as defined by ida
+    :param ast: ast for expression
+    :return: Statement object for ast
+    """
     if stmt.op == ida.cit_expr:
         return parse_hexrays_expression(stmt.cexpr, ast)
     return statements[stmt.op].from_item(stmt, ast)  # type: ignore
 
 
 def decode_json(d) -> "Expression":
-    """Decodes an encoded AST from JSON"""
+    """
+    Decodes an encoded AST from JSON
+    :param d: json object as dictionary
+    :return: expression object extracted from json
+    """
     meta = d["M"]
     return expressions_and_statements[meta].from_json(d)
 

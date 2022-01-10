@@ -1,2 +1,1 @@
 --editable ./../csvnpm-utils/
---editable ./

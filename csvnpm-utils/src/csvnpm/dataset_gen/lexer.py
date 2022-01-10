@@ -21,11 +21,16 @@ Token.Placeholder = Token.Token.Placeholder
 
 
 def hash_line(line):
-    """Hashes placeholders in a line passed as a list of (token_type, token_name)
-    pairs.  A hash combines the hash of the tokens to the left of a placeholder
+    """
+    Hashes placeholders in a line.
+
+    A hash combines the hash of the tokens to the left of a placeholder
     (excluding other placeholders) with the hash of the tokens to the right of a
     placeholder (including itself. This encodes position in addition to the
     contents of the rest of the line.
+
+    :param line: passed as a list of (token_type, token_name) pairs
+    :return: list of digests
     """
     names = [
         name if not is_token_subtype(token_type, Token.Placeholder) else "@@PLACEHOLDER"
@@ -54,8 +59,8 @@ class VarNaming(Enum):
 
 
 class Lexer:
-    def __init__(self, file_path, var_table=None):
-        self.program_text = open(file_path, "r").read()
+    def __init__(self, program_text: str, var_table=None):
+        self.program_text = program_text
         self.tokens = list(lex(self.program_text, HexRaysCLexer()))
         # Maps a placeholder id to a dict of variable names
         self.var_table = dict()
@@ -64,6 +69,17 @@ class Lexer:
                 reader = csv.DictReader(tablefile, delimiter=",", quotechar="|")
                 for row in reader:
                     self.var_table[row.pop("var_id")] = row
+
+    @classmethod
+    def lexer_from_files(cls, file_path, var_table_path=None):
+        program_text = open(file_path, "r").read()
+        var_table = dict()
+        if var_table_path:
+            with open(var_table_path, newline="") as tablefile:
+                reader = csv.DictReader(tablefile, delimiter=",", quotechar="|")
+                for row in reader:
+                    var_table[row.pop("var_id")] = row
+        return Lexer(program_text, var_table)
 
     # Generator that returns the next line with placeholder tokens replaced.
     # Use a generator here so that the list of tokens only has to live in memory

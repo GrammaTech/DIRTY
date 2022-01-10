@@ -33,19 +33,23 @@ class Beam(object):
         self.minimum_length = minimum_length
 
     def getCurrentState(self):
-        "Get the outputs for the current timestep."
+        """Get the outputs for the current timestep.
+
+        :return: current state tensor
+        """
         return self.nextYs[-1]
 
     def getCurrentOrigin(self):
-        "Get the backpointers for the current timestep."
+        """Get the backpointers for the current timestep.
+
+        :return: originating state tensor
+        """
         return self.prevKs[-1]
 
     def advance(self, wordLk):
-        """
-        Given prob over words for every last beam `wordLk`
-        Parameters:
-        * `wordLk`- probs of advancing from the last step (K x words)
-        Returns: True if beam search is complete.
+        """Given prob over words for every last beam `wordLk`
+        sets nessicary parameters to `True` if beam search is complete.
+        :param wordLk: probs of advancing from the last step (K x words)
         """
         numWords = wordLk.size(1)
 
@@ -99,8 +103,11 @@ class Beam(object):
         return scores, ks
 
     def getHyp(self, timestep, k):
-        """
-        Walk back to construct the full hypothesis.
+        """Walk back to construct the full hypothesis.
+
+        :param timestep: size of window
+        :param k: number of timesteps
+        :return: most recent k windows of size timestep
         """
         hyp = []
         for j in range(len(self.prevKs[:timestep]) - 1, -1, -1):

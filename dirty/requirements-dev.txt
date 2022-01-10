@@ -1,0 +1,16 @@
+pkginfo
+requests
+sphinx
+sphinx_rtd_theme
+twine
+pre-commit
+mypy
+mypy-extensions
+safety
+flake8
+black
+pipdeptree
+pytest
+darglint
+pytest-cov
+darglint
