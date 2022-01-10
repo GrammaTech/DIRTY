@@ -1,11 +1,18 @@
+from importlib.util import module_from_spec, spec_from_file_location
+
 from setuptools import find_namespace_packages, setup
 
 with open("README.md", "r") as f:
     README = f.read()
 
+spec = spec_from_file_location("pkginfo.version", "src/version.py")
+pkginfo = module_from_spec(spec)
+spec.loader.exec_module(pkginfo)
+
+
 setup(
-    name="cmu-dirty",
-    version="0.0.0",
+    name=pkginfo.__packagename__,
+    version=pkginfo.__version__,
     author="CMU STRUDEL",
     description="CMU-STRUDEL DIRTY tools for variable type and name prediction",
     long_description=README,
@@ -18,15 +25,16 @@ setup(
     install_requires=[
         "jsonnet~=0.17.0",
         "numpy~=1.19.5",
-        "pytorch_lightning~=1.2.10",
+        "pytorch_lightning~=1.3.0",
         "sentencepiece~=0.1.95",
         "torch~=1.8.1",
+        "torchmetrics~=0.4.1",
         "ujson~=4.0.2",
         "wandb~=0.10.29",
         "webdataset~=0.1.6",
         "docopt~=0.6.2",
         "scikit-learn~=0.24.2",
-        "csvnpm-utils~=0.0.0",
+        "csvnpm-utils~=0.2.0",
     ],
     extras_require={
         "test": [

@@ -258,11 +258,16 @@ The `binary/` folder contains definitions for classes, including types, variable
 
 ```
 csvnpm/binary/
-|-- dire_types.py   # constructing types and a type library
+|-- __init__.py
 |-- function.py     # definition and serialization for function instances
 |-- ida_ast.py      # constructing ASTs from IDA-Pro outputs
-|-- __init__.py
 `-- variable.py     # definition and serialization for variable instances
+|-- types           # constructing types and a type library
+    |-- __init__.py
+    |-- member.py   # Member, Padding, Field
+    |-- typeinfo.py # TypeInfo, Array, Pointer, Void, Disappear, FunctionPointer
+    |-- typelib.py  # Entry, EntryList, TypeLibABC, TypeLibCodec
+    `-- udt.py      # UDT, Union, Struct
 ```
 
 ### `idastubs/`

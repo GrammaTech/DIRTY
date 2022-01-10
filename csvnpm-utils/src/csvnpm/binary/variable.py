@@ -2,15 +2,20 @@
 
 from json import dumps
 
-from csvnpm.binary.dire_types import TypeInfo, TypeLibCodec
+from csvnpm.binary.types.typeinfo import TypeInfo
+from csvnpm.binary.types.typelib import TypeLibCodec
 
 
 class Location:
     """A variable location"""
 
     def json_key(self):
-        """Returns a string suitable as a key in a JSON dict"""
-        pass
+        """
+        Returns a string suitable as a key in a JSON dict
+
+        :raises NotImplementedError: abstract base class
+        """
+        raise NotImplementedError
 
 
 class Register(Location):
@@ -58,7 +63,12 @@ class Stack(Location):
 
 
 def location_from_json_key(key: str) -> Location:
-    """Hacky way to return a location from a JSON key"""
+    """
+    Hacky way to return a location from a JSON key
+
+    :param key: string to parse into a locaiton, example - 'r14' 's82'
+    :return: csvnpm Location type to be used by models
+    """
     return Stack(int(key[1:])) if key.startswith("s") else Register(int(key[1:]))
 
 

@@ -1,0 +1,168 @@
+variables:
+  PROJECT_ID: 1587
+  PIP_EXTRA_INDEX_URL: https://__token__:${GL_PKG_API_TOKEN}@${CI_SERVER_HOST}/api/v4/projects/${PROJECT_ID}/packages/pypi/simple
+  PYPIRC_PIP_EXTRA_INDEX_URL: https://${CI_SERVER_HOST}/api/v4/projects/${PROJECT_ID}/packages/pypi
+  PYTHON_IMAGE: python:3.8-slim
+  TEST_IMAGE: '$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG'
+  DEFAULT_BRANCH: master
+
+
+default:
+  tags:
+    - kubernetes
+
+workflow:
+  rules:
+    # A merge_train is the last step before merging an MR
+  - if: $CI_MERGE_REQUEST_EVENT_TYPE == "merge_train"
+    # Also run on any push to a tag or branch
+  - if: $CI_COMMIT_TAG
+  - if: $CI_COMMIT_BRANCH
+    # Or if the run is scheduled
+  - if: $CI_PIPELINE_SOURCE == "schedule"
+
+
+stages:
+  - build
+  - test
+  - export
+
+
+# Use kaniko to build docker image.
+#  https://docs.gitlab.com/ee/ci/docker/using_kaniko.html
+#  https://github.com/GoogleContainerTools/kaniko
+build_image:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]  # Override the image's entrypoint so we can specify our own script
+  script:
+    # Configure authentication credentials
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    # Run the kaniko executor, which will build our image (using a cache if available) and push it to the CI_REGISTRY.
+    # Downstream jobs will leverage this image for testing and exporting.
+    - >-
+      /kaniko/executor
+      --cache=${KANIKO_USE_CACHE:-true}
+      --context=$CI_PROJECT_DIR
+      --dockerfile=$CI_PROJECT_DIR/docker/Dockerfile
+      --destination=$TEST_IMAGE
+      --target=test
+
+.test:
+  stage: test
+  image: $TEST_IMAGE
+  before_script:
+    - pip install tox
+    - SPLIT_CI_JOB_NAME=($CI_JOB_NAME)
+    - >-
+      if [[ ${#SPLIT_CI_JOB_NAME[@]} != 2 ]]; then
+      echo "CI_JOB_NAME must be a 'workflow name' and 'pytest marker' separated by whitespace.";
+      echo "For example: 'foo_workflow commit' or 'bar_workflow nightly'";
+      exit 1;
+      fi
+    - export PYTEST_MARKER=${SPLIT_CI_JOB_NAME[1]}
+
+.test_tox:
+  extends: .test
+  script:
+    - cd "$SPLIT_CI_JOB_NAME"
+    - tox -e "$PYTEST_MARKER" -r -vv
+
+
+csvnpm-utils mypy:
+  extends: .test_tox
+
+csvnpm-utils pipcheck:
+  extends: .test_tox
+
+csvnpm-utils safety:
+  extends: .test_tox
+
+csvnpm-utils pytest:
+  extends: .test_tox
+
+dirty mypy:
+  extends: .test_tox
+
+dirty pipcheck:
+  extends: .test_tox
+
+dirty safety:
+  extends: .test_tox
+
+dirty pytest:
+  extends: .test_tox
+
+.merge_train:
+  rules:
+    - if: $CI_MERGE_REQUEST_EVENT_TYPE == "merge_train" # trigger durring merge train
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+
+.train_publish:
+  before_script:
+    - export SUBPACKAGE_NAME=($CI_JOB_NAME)
+  rules:
+    # having rules and not including $CI_COMMIT_BRANCH forces this to holy trigger
+    - if: $CI_MERGE_REQUEST_EVENT_TYPE == "merge_train" # trigger durring merge train
+      when: on_success
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if : '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "$DEFAULT_BRANCH"'
+      changes:
+        - ($CI_JOB_NAME)/**/*
+
+.export_internal:
+  extends: .train_publish
+  stage: export
+  image: $PYTHON_IMAGE
+  script:
+    - cd ${CI_PROJECT_DIR}/${SUBPACKAGE_NAME}
+    - pip install -r requirements-dev.txt
+    - python3 ./setup.py bdist_wheel --dist-dir=$CI_PROJECT_DIR/dist
+    - VERSION=$(python3 -c "from imp import load_source; pkginfo = load_source('pkginfo.version', '${CI_PROJECT_DIR}/${SUBPACKAGE_NAME}/src/version.py'); print(pkginfo.__version__)")
+    - PKGNAME=$(python3 -c "from imp import load_source; pkginfo = load_source('pkginfo.version', '${CI_PROJECT_DIR}/${SUBPACKAGE_NAME}/src/version.py'); print(pkginfo.__packagename__)")
+    - if [[ "$VERSION" =~ \.dev[[:digit:]]*.*$ && "$CI_COMMIT_REF_NAME" =~ ^release-.* ]]; then exit 1; fi
+    # this job is not using $CI_JOB_TOKEN because it only has read access
+    # https://gitlab.com/gitlab-org/gitlab/-/issues/35067
+    # this job is also not using $CI_DEPLOY_USER and $CI_DEPLOY_PASSWORD because it only has write access
+    - if [[ "$CI_COMMIT_BRANCH" == "master" ]]; then
+        if [[ ! "$VERSION" =~ \.dev[[:digit:]]*$ ]]; then
+          echo "[ERROR] On the master branch, we must be exporting a -dev version."
+          exit 1;
+        fi;
+        if pip3 install "$PKGNAME>$VERSION" 2>/dev/null; then
+          echo "[ERROR] The package version being published on master should always be >= the version in the repository.";
+          exit 1;
+        fi;
+        ls $CI_PROJECT_DIR/dist/*.whl | xargs $CI_PROJECT_DIR/delete_remote_packages.py $GL_PKG_API_TOKEN;
+      fi
+    - echo 's#password = <access token>#password = '"${GL_PKG_API_TOKEN}"'#;s#repository = <repository url>#repository = '"${PYPIRC_PIP_EXTRA_INDEX_URL}"'#'
+    - sed 's#password = <access token>#password = '"${GL_PKG_API_TOKEN}"'#;s#repository = <repository url>#repository = '"${PYPIRC_PIP_EXTRA_INDEX_URL}"'#' $CI_PROJECT_DIR/.pypirc > ~/.pypirc
+    - cat ~/.pypirc
+    - python3 -m twine upload --verbose --repository repypi $CI_PROJECT_DIR/dist/*.whl  # uncomment
+
+# The job below is for uploading to the public pypi repository.  Uncomment it if
+# you need it, otherwise delete it.
+# export_external:
+#   stage: export
+#   image: $TEST_IMAGE
+#   script:
+#     - pip install -r requirements-dev.txt
+#     - python3 setup.py bdist_wheel --dist-dir=$CI_PROJECT_DIR/dist
+#     - VERSION=$(python3 -c "from imp import load_source; pkginfo = load_source('pkginfo.version', 'src/version.py'); print(pkginfo.__version__)")
+#     # Do not publish .dev versions on the public pypi
+#     - if [[ "$VERSION" =~ \.dev[[:digit:]]*.*$ ]]; then exit 1; fi
+#     - python3 -m twine upload --verbose $CI_PROJECT_DIR/dist/*.whl -u __token__ -p $PYPI_API_KEY
+#   tags:
+#     - kubernetes
+#   rules:
+#     - if: '$CI_COMMIT_REF_NAME =~ /^release-.*/'
+
+csvnpm-utils export_internal:
+  extends: .export_internal
+
+dirty export_internal:
+  extends: .export_internal

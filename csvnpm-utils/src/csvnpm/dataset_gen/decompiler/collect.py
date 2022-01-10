@@ -3,9 +3,11 @@ import os
 from collections import defaultdict
 from typing import DefaultDict, Iterable, Optional, Set
 
-from csvnpm.binary.dire_types import TypeInfo, TypeLib, TypeLibCodec
+from csvnpm.binary.types.typeinfo import TypeInfo
+from csvnpm.binary.types.typelib import TypeLibCodec
 from csvnpm.binary.variable import Location, Register, Stack, Variable
 from csvnpm.ida import idaapi as ida
+from csvnpm.ida.ida_typelib import TypeLib
 
 
 class Collector(ida.action_handler_t):
@@ -42,15 +44,22 @@ class Collector(ida.action_handler_t):
         stkoff_delta: int,
         variables: Iterable[ida.lvar_t],
     ) -> DefaultDict[Location, Set[Variable]]:
-        """Collects Variables from a list of tinfo_ts and adds their types to the type
-        library."""
+        """
+        Collects Variables from a list of tinfo_ts and adds their types to the type
+        library.
+
+        :param frsize: frame size
+        :param stkoff_delta: stack offset difference
+        :param variables: list of variables as defined by ida
+        :return: mapping of location to csvnom variables for operation with models
+        """
         collected_vars: DefaultDict[Location, Set[Variable]] = defaultdict(set)
         for v in variables:
             if v.name == "" or not v.type():
                 continue
             # Add all types to the typelib
             self.type_lib.add_ida_type(v.type())
-            typ: TypeInfo = TypeLib.parse_ida_type(v.type())
+            typ: TypeInfo = TypeLib.parse_type(v.type())
 
             loc: Optional[Location] = None
             if v.is_stk_var():
@@ -66,5 +75,9 @@ class Collector(ida.action_handler_t):
         return collected_vars
 
     def activate(self, ctx) -> int:
-        """Runs the collector"""
+        """
+        Runs the collector
+        :param ctx: unused
+        :raises NotImplementedError: abstract base class
+        """
         raise NotImplementedError

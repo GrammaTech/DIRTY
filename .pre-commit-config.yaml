@@ -15,20 +15,20 @@ repos:
     rev: 21.5b0
     hooks:
       - id: black
-        language_version: python3.6
+        language_version: python3.8
         exclude: (^dire|tests)
   - repo: https://github.com/timothycrosley/isort
     rev: 5.8.0
     hooks:
       - id: isort
         exclude: (^dire|tests)
-  - repo: https://gitlab.com/devopshq/gitlab-ci-linter
-    rev: v1.0.3
-    hooks:
-      - id: gitlab-ci-linter
-        args:
-          - --server=https://git.grammatech.com
-          - --filename=.ci/gitlab-ci.yml
+#  - repo: https://gitlab.com/devopshq/gitlab-ci-linter
+#    rev: v1.0.3
+#    hooks:
+#      - id: gitlab-ci-linter
+#        args:
+#          - --server=https://git.grammatech.com
+#          - --filename=.ci/gitlab-ci.yml
   - repo: https://gitlab.com/pycqa/flake8
     rev: 3.9.1
     hooks:

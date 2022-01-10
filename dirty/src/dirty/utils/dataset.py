@@ -1,12 +1,13 @@
 import glob
 import json
-from typing import Dict, List, Mapping, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, Union
 
 import _jsonnet
 import torch
 import webdataset as wds
-from csvnpm.binary.dire_types import Disappear, TypeLibCodec
 from csvnpm.binary.function import CollectedFunction
+from csvnpm.binary.types.typeinfo import Disappear
+from csvnpm.binary.types.typelib import TypeLibCodec
 from csvnpm.binary.variable import (
     Location,
     Register,
@@ -74,10 +75,16 @@ class Example:
 
     @classmethod
     def from_cf(cls, cf: CollectedFunction, **kwargs):
-        """Convert from a decoded CollectedFunction"""
+        """Convert from a decoded CollectedFunction
+
+        :param cf: collected function
+        :param kwargs: keyword override for class instantiation
+        :return: class representation of collected function
+        """
         name = cf.decompiler.name
         raw_code = cf.decompiler.raw_code
-        code_tokens = tokenize_raw_code(raw_code)
+        # code_tokens = tokenize_raw_code(raw_code)
+        debug_token_set = set(tokenize_raw_code(cf.debug.raw_code))
 
         source: Dict[Location, Set[Variable]] = {
             **cf.decompiler.local_vars,
@@ -88,37 +95,61 @@ class Example:
             **cf.debug.arguments,
         }
 
-        # Remove variables that overlap on memory or don't appear in the code
-        # tokens
-        source_code_tokens_set = set(code_tokens)
-        target_code_tokens_set = set(tokenize_raw_code(cf.debug.raw_code))
+        return cls.from_components(
+            kwargs["binary_file"], name, raw_code, debug_token_set, source, target
+        )
 
-        filtered_source = Example.filter(source, source_code_tokens_set)
-        filtered_target = Example.filter(
-            target, target_code_tokens_set, set(source.keys())
+    @staticmethod
+    def get_disappear():
+        return Variable(Disappear(), "", False)
+
+    @classmethod
+    def from_components(
+        cls,
+        binary_file: str,
+        function_name: str,
+        decompiled_code: str,
+        dwarf_code_token_set: Optional[Set[str]],
+        decompiled_vars_by_location: Dict[Any, Set[Any]],
+        dwarf_vars_by_location: Dict[Any, Set[Any]],
+    ):
+        decompiled_ordered_code_tokens = tokenize_raw_code(decompiled_code)
+        decompiled_code_token_set = set(decompiled_ordered_code_tokens)
+
+        filtered_decompiled_vars_by_location = cls.filter(
+            decompiled_vars_by_location, decompiled_code_token_set
+        )
+        filtered_dwarf_vars_by_location = cls.filter(
+            dwarf_vars_by_location,
+            dwarf_code_token_set,
+            set(decompiled_vars_by_location.keys()),
         )
 
         # Assign type "Disappear" to variables not existing in the ground truth
+        for loc in filtered_decompiled_vars_by_location:
+            if loc not in filtered_dwarf_vars_by_location:
+                filtered_dwarf_vars_by_location[loc] = cls.get_disappear()
+
+        # Add special tokens to variables to prevnt being sub-tokenized in BPE
         varnames = set()
-        for loc in filtered_source.keys():
-            if loc not in filtered_target.keys():
-                filtered_target[loc] = Variable(Disappear(), "", False)
+
         # Add special tokens to variables  to prevnt being sub-tokenized in BPE
-        for var in filtered_source.values():
+        for var in filtered_decompiled_vars_by_location.values():
             varname = var.name
             varnames.add(varname)
-        for idx in range(len(code_tokens)):
-            if code_tokens[idx] in varnames:
-                code_tokens[idx] = f"@@{code_tokens[idx]}@@"
+
+        for idx, token in enumerate(decompiled_ordered_code_tokens):
+            if token in varnames:
+                decompiled_ordered_code_tokens[idx] = f"@@{token}@@"
 
         return cls(
-            name,
-            code_tokens,
-            filtered_source,
-            filtered_target,
-            kwargs["binary_file"],
-            valid=(name == cf.debug.name and bool(filtered_source)),
-            raw_code=raw_code,
+            function_name,
+            decompiled_ordered_code_tokens,
+            filtered_decompiled_vars_by_location,
+            filtered_dwarf_vars_by_location,
+            binary_file,
+            valid=bool(filtered_decompiled_vars_by_location),
+            raw_code=decompiled_code,
         )
 
     @staticmethod
@@ -132,6 +163,11 @@ class Example:
         Multiple variables sharing a memory location (no way to determine ground truth);
         Variables not appearing in code (no way to get representation);
         Target variables not appearing in source (useless ground truth);
+
+        :param mapping: map of locations to set of variables
+        :param code_tokens: acceptable code tokens, defaults to None
+        :param locations: acceptable code locations, defaults to None
+        :return: mapping from location to variables
         """
         ret: Dict[Location, Variable] = {}
         for location, variable_set in mapping.items():

@@ -2,10 +2,10 @@ import os
 import pickle
 from typing import Dict
 
-from csvnpm.binary.dire_types import TypeLib
 from csvnpm.binary.function import Function
 from csvnpm.ida import idaapi as ida  # type: ignore
 from csvnpm.ida import idautils
+from csvnpm.ida.ida_typelib import TypeLib
 
 from .collect import Collector
 
@@ -18,7 +18,8 @@ class CollectDebug(Collector):
         super().__init__()
 
     def write_functions(self) -> None:
-        """Dumps the collected functions to the file specified by the environment
+        """
+        Dumps the collected functions to the file specified by the environment
         variable `FUNCTIONS`.
         """
         with open(os.environ["FUNCTIONS"], "wb") as functions_fh:
@@ -26,7 +27,12 @@ class CollectDebug(Collector):
             functions_fh.flush()
 
     def activate(self, ctx) -> int:
-        """Collects types, user-defined variables, and their locations"""
+        """
+        Collects types, user-defined variables, and their locations
+
+        :param ctx: context? doesn't seem to be important
+        :return: 1 if success, expect a downstream error otherwise
+        """
         print("Collecting vars and types.")
         # `ea` is the start address of a single function
         for ea in idautils.Functions():
@@ -43,7 +49,7 @@ class CollectDebug(Collector):
             # Function info
             name: str = ida.get_func_name(ea)
             self.type_lib.add_ida_type(cfunc.type.get_rettype())
-            return_type = TypeLib.parse_ida_type(cfunc.type.get_rettype())
+            return_type = TypeLib.parse_type(cfunc.type.get_rettype())
 
             arguments = self.collect_variables(
                 f.frsize, cfunc.get_stkoff_delta(), cfunc.arguments

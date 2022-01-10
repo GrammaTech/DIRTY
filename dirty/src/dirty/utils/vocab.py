@@ -15,7 +15,7 @@ from collections import Counter
 from itertools import chain
 
 import sentencepiece as spm  # type: ignore
-from csvnpm.binary.dire_types import TypeLibCodec
+from csvnpm.binary.types.typelib import TypeLibCodec
 from csvnpm.binary.variable import Register
 from docopt import docopt  # type: ignore
 from tqdm import tqdm  # type: ignore
@@ -162,6 +162,9 @@ class VocabEntry:
         <SEP>: 1
         <unk>: 2
         mem_id: mem_offset + 3
+
+        :param mems: offsetts
+        :return: list of memory offsets
         """
         ret = []
         for mem in mems[: VocabEntry.MAX_MEM_LENGTH]:

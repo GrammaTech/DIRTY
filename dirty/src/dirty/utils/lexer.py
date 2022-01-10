@@ -26,16 +26,63 @@ class TokenError(Exception):
         self.message = message
 
 
+class InternalLexer(CLexer):
+    # Additional tokens
+    tokens = {
+        "statements": [
+            (r"->", Token.Operator),
+            (r"\+\+", Token.Operator),
+            (r"--", Token.Operator),
+            (r"==", Token.Operator),
+            (r"!=", Token.Operator),
+            (r">=", Token.Operator),
+            (r"<=", Token.Operator),
+            (r"&&", Token.Operator),
+            (r"\|\|", Token.Operator),
+            (r"\+=", Token.Operator),
+            (r"-=", Token.Operator),
+            (r"\*=", Token.Operator),
+            (r"/=", Token.Operator),
+            (r"%=", Token.Operator),
+            (r"&=", Token.Operator),
+            (r"\^=", Token.Operator),
+            (r"\|=", Token.Operator),
+            (r"<<=", Token.Operator),
+            (r">>=", Token.Operator),
+            (r"<<", Token.Operator),
+            (r">>", Token.Operator),
+            (r"\.\.\.", Token.Operator),
+            (r"##", Token.Operator),
+            (r"@@VAR_[0-9]+@@\w+@@\w+", Token.Placeholder.Var),
+            inherit,
+        ]
+    }
+
+
+class HexRaysLexer(InternalLexer):
+    # Additional tokens
+    tokens = {
+        "statements": [
+            (r"::", Token.Operator),
+            inherit,
+        ]
+    }
+
+
 class Lexer:
-    def __init__(self, raw_code):
+    def __init__(self, raw_code, lexer_spec=HexRaysLexer()):
         self.raw_code = raw_code
-        self.tokens = list(lex(self.raw_code, HexRaysLexer()))
+        self.tokens = list(lex(self.raw_code, lexer_spec))
 
     def get_tokens(self, var_names=Names.RAW):
         """Generate tokens from a raw_code string, skipping comments.
 
         Keyword arguments:
         var_names -- Which variable names to output (default RAW).
+
+        :param var_names: variable names, defaults to Names.RAW
+        :raises TokenError: unable uplabel code token
+        :yield: tuples of token with local class labels
         """
         previous_string = None
         for (token_type, token) in self.tokens:
@@ -72,40 +119,6 @@ class Lexer:
                 continue
             else:
                 raise TokenError(f"No token ({token_type}, {token})")
-
-
-class HexRaysLexer(CLexer):
-    # Additional tokens
-    tokens = {
-        "statements": [
-            (r"->", Token.Operator),
-            (r"\+\+", Token.Operator),
-            (r"--", Token.Operator),
-            (r"==", Token.Operator),
-            (r"!=", Token.Operator),
-            (r">=", Token.Operator),
-            (r"<=", Token.Operator),
-            (r"&&", Token.Operator),
-            (r"\|\|", Token.Operator),
-            (r"\+=", Token.Operator),
-            (r"-=", Token.Operator),
-            (r"\*=", Token.Operator),
-            (r"/=", Token.Operator),
-            (r"%=", Token.Operator),
-            (r"&=", Token.Operator),
-            (r"\^=", Token.Operator),
-            (r"\|=", Token.Operator),
-            (r"<<=", Token.Operator),
-            (r">>=", Token.Operator),
-            (r"<<", Token.Operator),
-            (r">>", Token.Operator),
-            (r"\.\.\.", Token.Operator),
-            (r"##", Token.Operator),
-            (r"::", Token.Operator),
-            (r"@@VAR_[0-9]+@@\w+@@\w+", Token.Placeholder.Var),
-            inherit,
-        ]
-    }
 
 
 if __name__ == "__main__":

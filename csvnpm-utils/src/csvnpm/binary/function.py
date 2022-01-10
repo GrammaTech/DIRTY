@@ -2,8 +2,9 @@ from collections import defaultdict
 from json import dumps
 from typing import DefaultDict, Mapping, Optional, Set, Tuple
 
-from csvnpm.binary.dire_types import TypeInfo, TypeLibCodec
 from csvnpm.binary.ida_ast import AST
+from csvnpm.binary.types.typeinfo import TypeInfo
+from csvnpm.binary.types.typelib import TypeLibCodec
 from csvnpm.binary.variable import Location, Stack, Variable, location_from_json_key
 
 
@@ -109,17 +110,19 @@ class Function:
 
     @staticmethod
     def stack_layout(vars) -> Tuple[Tuple[int, ...], Tuple[int, ...], bool]:
-        """Returns the layout of the stack as a pair of tuples. The first
-        tuple is the accessible offsets on the stack, while the second
-        are the start offsets of data in the stack.
-
+        """
         This is useful for using with a TypeLib to get the next replacement
-        types. For example, if you have a TypeLib in the variable `lib` and
-        you want to get the list of next possible retypings for a function in
-        the variable `f`, you would use:
+          types. For example, if you have a TypeLib in the variable `lib` and
+          you want to get the list of next possible retypings for a function in
+          the variable `f`, you would use:
 
-        accessible, starts = f.stack_layout()
-        lib.get_next_replacements(accessible, starts)
+            accessible, starts = f.stack_layout()
+            lib.get_next_replacements(accessible, starts)
+
+        :param vars: dictionary of variables keyed by a csvnpm Location type
+        :return: the layout of the stack as a pair of tuples. The first
+            tuple is the accessible offsets on the stack, while the second
+            are the start offsets of data in the stack.
         """
         # List of tuples of (offset, TypeInfo)
         accessible = []

@@ -1,7 +1,7 @@
 #######################################
 # test image
 #######################################
-FROM ubuntu:18.04 as test
+FROM ubuntu:18.04 AS test
 
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 ENV PATH /opt/conda/bin:$PATH
@@ -21,11 +21,9 @@ RUN apt-get install -y \
         libxrender1 \
         git \
         mercurial \
-        subversion
-RUN apt-get install -y \
-        gcc \
-        g++ \
-        make
+        subversion \
+        make \
+        gcc g++
 RUN apt-get clean
 
 # conda retrieval
@@ -39,6 +37,8 @@ RUN wget --quiet https://repo.anaconda.com/archive/Anaconda3-2020.11-Linux-x86_6
     find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
     /opt/conda/bin/conda clean -afy
 
+
+FROM test AS result
 RUN chown -R 10023:10 /opt/conda/
 
 CMD [ "/bin/bash" ]
