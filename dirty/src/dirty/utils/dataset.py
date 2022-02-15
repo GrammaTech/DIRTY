@@ -47,11 +47,11 @@ class Example:
     def from_json(cls, d: Dict):
         source = {
             location_from_json_key(loc): Variable.from_json(var)
-            for loc, var in d["source"].items()
+            for loc, var in d.get("source", {}).items()
         }
         target = {
             location_from_json_key(loc): Variable.from_json(var)
-            for loc, var in d["target"].items()
+            for loc, var in d.get("target", {}).items()
         }
         return cls(
             d["name"],
@@ -63,7 +63,7 @@ class Example:
         )
 
     def to_json(self):
-        assert self._is_valid
+        # assert self._is_valid
         source = {loc.json_key(): var.to_json() for loc, var in self.source.items()}
         target = {loc.json_key(): var.to_json() for loc, var in self.target.items()}
         return {
