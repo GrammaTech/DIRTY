@@ -35,20 +35,44 @@ from dirty.utils import util  # type: ignore
 from dirty.utils.dataset import Dataset  # type: ignore
 
 
-def train(args):
+def cli(args):
     config = json.loads(_jsonnet.evaluate_file(args["CONFIG_FILE"]))
-
     if args["--extra-config"]:
         extra_config = args["--extra-config"]
         extra_config = json.loads(extra_config)
         config = util.update(config, extra_config)
+    percent = float(args["--percent"])
+    experiment_name = args["--expname"]
+    resume_from_checkpoint = (
+        args["--eval-ckpt"] if args["--eval-ckpt"] else args["--resume"]
+    )
+    gpus = 1 if args["--cuda"] else None
+    evaluation_checkpoint = args["--eval-ckpt"]
+    return train(
+        config,
+        percent,
+        experiment_name,
+        resume_from_checkpoint,
+        gpus,
+        evaluation_checkpoint,
+    )
 
+
+def train(
+    config,
+    percent,
+    experiment_name,
+    resume_from_checkpoint,
+    gpus,
+    evaluation_checkpoint,
+):
     # dataloaders
     batch_size = config["train"]["batch_size"]
+
     train_set = Dataset(
         config["data"]["train_file"],
         config["data"],
-        percent=float(args["--percent"]),
+        percent=percent,
     )
     dev_set = Dataset(config["data"]["dev_file"], config["data"])
     train_loader = DataLoader(
@@ -69,17 +93,15 @@ def train(args):
     # model
     model = TypeReconstructionModel(config)
 
-    wandb_logger = WandbLogger(name=args["--expname"], project="dire", log_model=True)
+    wandb_logger = WandbLogger(name=experiment_name, project="dire", log_model=True)
     wandb_logger.log_hyperparams(config)
-    resume_from_checkpoint = (
-        args["--eval-ckpt"] if args["--eval-ckpt"] else args["--resume"]
-    )
+
     if resume_from_checkpoint == "":
         resume_from_checkpoint = None
     trainer = pl.Trainer(
         max_epochs=config["train"]["max_epoch"],
         logger=wandb_logger,
-        gpus=1 if args["--cuda"] else None,
+        gpus=gpus,
         auto_select_gpus=True,
         gradient_clip_val=1,
         callbacks=[
@@ -96,7 +118,7 @@ def train(args):
         accumulate_grad_batches=config["train"]["grad_accum_step"],
         resume_from_checkpoint=resume_from_checkpoint,
     )
-    if args["--eval-ckpt"]:
+    if evaluation_checkpoint:
         # HACK: necessary to make pl test work for IterableDataset
         Dataset.__len__ = lambda self: 1000000
         test_set = Dataset(config["data"]["test_file"], config["data"])
@@ -107,7 +129,9 @@ def train(args):
             num_workers=8,
             pin_memory=True,
         )
-        trainer.test(model, test_dataloaders=test_loader, ckpt_path=args["--eval-ckpt"])
+        trainer.test(
+            model, test_dataloaders=test_loader, ckpt_path=evaluation_checkpoint
+        )
     else:
         trainer.fit(model, train_loader, val_loader)
 
@@ -128,7 +152,7 @@ def main():
     random.seed(seed * 17 // 7)
 
     if cmd_args["train"]:
-        train(cmd_args)
+        cli(cmd_args)
 
 
 if __name__ == "__main__":
