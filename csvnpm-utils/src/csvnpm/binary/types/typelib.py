@@ -46,6 +46,10 @@ class Entry(NamedTuple):
             return other.typeinfo == self.typeinfo
         return False
 
+    def __lt__(self, other) -> bool:
+        assert isinstance(other, Entry)
+        return self.frequency < other.frequency
+
     def inc(self, value: int) -> "Entry":
         return Entry(frequency=self.frequency + value, typeinfo=self.typeinfo)
 
@@ -62,6 +66,7 @@ class EntryList:
     """
 
     def __init__(self, data: List[Entry] = []):
+        # type is not subscriptable, real type is ValueSortedDict[TypeInfo, Entry]
         self._data: ValueSortedDict = self._initialize_data(data)
 
     @staticmethod
@@ -128,7 +133,7 @@ class EntryList:
         return self._data
 
     def __iter__(self):
-        yield from self._data
+        yield from self._data.values()
 
     def __len__(self) -> int:
         return len(self._data)
@@ -264,7 +269,6 @@ class TypeLibABC(ABC):
                 return False
         return True
 
-    @abstractmethod
     def get_replacements(
         self, types: Tuple[TypeInfo, ...]
     ) -> Iterable[Tuple[TypeInfo, ...]]:
@@ -401,6 +405,7 @@ class TypeLibABC(ABC):
     @classmethod
     def _from_json(cls: Type[T], d: Dict[str, Any]) -> T:
         data: DefaultDict[int, EntryList] = defaultdict(EntryList)
+
         # Convert lists of types into sets
         for key, lib_entry in d.items():
             if key == "T":
@@ -472,10 +477,56 @@ class TypeLibABC(ABC):
                 self._data.pop(key)
 
 
+class TypelessTypeLib(TypeLibABC):
+    @staticmethod
+    def parse_type(typ: Any) -> TypeInfo:  # type: ignore
+        return Void()
+
+    def add_type(
+        self,
+        typ: Any,
+        worklist: Set[str] = set(),
+    ):
+        return None
+
+
 class TypeLibCodec:
     """Encoder/Decoder functions"""
 
     CodecTypes = tUnion[TypeLibABC, EntryList, TypeInfo, Member]
+
+    _typelib_key = 0
+    _classes: Dict[
+        tUnion[int, str],
+        tUnion[
+            Type[TypeLibABC],
+            Type[EntryList],
+            Type[TypeInfo],
+            Type[Member],
+        ],
+    ] = {
+        "E": EntryList,
+        _typelib_key: TypelessTypeLib,
+        1: TypeInfo,
+        2: Array,
+        3: Pointer,
+        4: Field,
+        5: Padding,
+        6: Struct,
+        7: Union,
+        8: Void,
+        9: FunctionPointer,
+        10: Disappear,
+    }
+
+    def __init__(self, typelib: Type[TypeLibABC] = TypelessTypeLib):
+        self.set_typelib(typelib)
+
+    @classmethod
+    def set_typelib(cls, typelib: Type[TypeLibABC]):
+        assert issubclass(typelib, TypeLibABC)
+        cls._classes[cls._typelib_key] = typelib
+        return True
 
     @staticmethod
     def decode(encoded: str) -> CodecTypes:
@@ -483,34 +534,11 @@ class TypeLibCodec:
         :param encoded: string representation of encoded TypeLibCodec
         :return: Decodes a JSON string
         """
-
         return loads(encoded, object_hook=TypeLibCodec.read_metadata)
 
-    @staticmethod
-    def read_metadata(d: Dict[str, Any]) -> "TypeLibCodec.CodecTypes":
-        classes: Dict[
-            tUnion[int, str],
-            tUnion[
-                Type[TypeLibABC],
-                Type[EntryList],
-                Type[TypeInfo],
-                Type[Member],
-            ],
-        ] = {
-            "E": EntryList,
-            0: TypeLibABC,
-            1: TypeInfo,
-            2: Array,
-            3: Pointer,
-            4: Field,
-            5: Padding,
-            6: Struct,
-            7: Union,
-            8: Void,
-            9: FunctionPointer,
-            10: Disappear,
-        }
-        return classes[d["T"]]._from_json(d)  # type: ignore
+    @classmethod
+    def read_metadata(cls, d: Dict[str, Any]) -> "TypeLibCodec.CodecTypes":
+        return cls._classes[d["T"]]._from_json(d)  # type: ignore
 
     class _Encoder(JSONEncoder):
         def default(self, obj: Any) -> Any:

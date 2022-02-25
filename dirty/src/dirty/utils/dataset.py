@@ -20,6 +20,10 @@ from torch.nn.utils.rnn import pad_sequence
 from dirty.utils.code_processing import tokenize_raw_code
 
 
+class GlobPatternResultEmpty(Exception):
+    pass
+
+
 class Example:
     def __init__(
         self,
@@ -203,6 +207,9 @@ class Dataset(wds.Dataset):
     def __init__(self, url: str, config: Optional[Dict] = None, percent: float = 1.0):
         # support wildcards
         urls = sorted(glob.glob(url))
+        print(urls)
+        if not urls:
+            raise GlobPatternResultEmpty
         urls = urls[: int(percent * len(urls))]
         super().__init__(urls)
         if config:
