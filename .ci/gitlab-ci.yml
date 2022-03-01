@@ -4,7 +4,7 @@ variables:
   PYPIRC_PIP_EXTRA_INDEX_URL: https://${CI_SERVER_HOST}/api/v4/projects/${PROJECT_ID}/packages/pypi
   PYTHON_IMAGE: python:3.8-slim
   TEST_IMAGE: '$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG'
-  DEFAULT_BRANCH: master
+  DEFAULT_BRANCH: grammatech
 
 
 default:
@@ -107,7 +107,8 @@ dirty pytest:
   rules:
     # having rules and not including $CI_COMMIT_BRANCH forces this to holy trigger
     - if: $CI_MERGE_REQUEST_EVENT_TYPE == "merge_train" # trigger durring merge train
-      when: on_success
+      changes:
+        - ($CI_JOB_NAME)/**/*
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
     - if : '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "$DEFAULT_BRANCH"'
