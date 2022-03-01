@@ -25,10 +25,10 @@ setup(
     install_requires=[
         "jsonnet~=0.16.0",
         "numpy~=1.19.5",
-        "pytorch_lightning~=1.3.0",
+        "pytorch_lightning~=1.1.0",
         "sentencepiece~=0.1.95",
         "torch~=1.8.1",
-        "torchmetrics~=0.4.1",
+        "torchmetrics~=0.2.0",
         "ujson~=4.0.2",
         "wandb~=0.10.29",
         "webdataset==0.1.61",
